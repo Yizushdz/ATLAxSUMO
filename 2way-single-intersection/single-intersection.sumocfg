@@ -1,0 +1,22 @@
+vnflkvndslvdnvlsk
+<configuration>
+    <input>
+        <net-file value="single-intersection.net.xml"/>
+        <route-files value="single-intersection.rou.xml"/>
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="10000"/>
+    </time>
+    <logging>
+        <log v="true" s="true" c="true" gui="false">
+            <level v="3"/>
+            <!-- File to write logs to -->
+            <file value="simulation.log"/>
+        </log>
+    </logging>
+</configuration>
+
+
+
+
