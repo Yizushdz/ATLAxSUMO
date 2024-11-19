@@ -9,7 +9,7 @@ gitpython
 scikit_learn
 tensorboardX
 tables
-mujoco-py==1.50.1.68
+# mujoco-py==1.50.1.68
 packaging>=20.0
 pytest>=5.0
 appdirs>=1.4
