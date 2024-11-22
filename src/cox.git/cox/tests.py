@@ -6,6 +6,7 @@ import sys
 import tempfile
 
 from . import store
+'''test script designed to verify the functionality of the store and readers modules.'''
 
 d = tempfile.mkdtemp()
 

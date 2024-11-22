@@ -5,6 +5,8 @@ import os
 import dill as pickle
 import codecs
 import itertools
+'''ile provides utility functions and classes that support parameter management,
+ consistency checks, and configuration overrides.'''
 
 def consistent(old, new):
     '''

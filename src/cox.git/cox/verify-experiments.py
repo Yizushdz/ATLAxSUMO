@@ -6,6 +6,8 @@ import json
 from .readers import CollectionReader
 from .generator import PATH_KEY, consolidate_experiment
 from importlib.util import spec_from_file_location, module_from_spec
+'''the file is used to verify that all experiments ran successfully 
+(either by config file or by directory) and copy the failed experiments to a new directory'''
 
 if  __name__=="__main__":
     parser = argparse.ArgumentParser(description='Verify that all experiments ran successfully (either by config file or by directory)')

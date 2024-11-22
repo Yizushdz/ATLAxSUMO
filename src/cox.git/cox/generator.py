@@ -3,6 +3,8 @@ from uuid import uuid4
 import pandas as pd
 import json
 import os
+'''runs a set of experiments in parallel using tmux
+automates the process of running a set of experiments in parallel'''
 
 TMUX_STRING = \
 """tmux new-session -d -s {0} -n 0

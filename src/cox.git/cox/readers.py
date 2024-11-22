@@ -5,6 +5,11 @@ import tqdm
 from .store import STORE_BASENAME, Store, OBJECT, PICKLE
 
 ## collection tools
+'''class that is used to manage a collection of stores. Stores refers to directories or
+conatiners that hold data tables and other related info.
+The class provides functionality to initialize, open, and view the contents of these stores.
+ This is useful for handling multiple directories containing data tables,
+   allowing for easy access and manipulation of the stored data.'''
 class CollectionReader:
     '''
     Class for collecting, viewing, and manipulating directories of stores.

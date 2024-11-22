@@ -2,6 +2,10 @@ from .readers import CollectionReader
 from argparse import ArgumentParser
 import os
 import re
+'''given a directory of experiments, this script will generate a script that
+will start a tensorboard session with all of the experiments in the directory
+as separate runs. This is useful for comparing runs with different parameters
+quickly.'''
 
 def has_tensorboard(dirname):
     if not os.path.isdir(dirname):

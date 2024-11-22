@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 import os
 import shutil
 import re
+'''file to collect experiment logs and metadata about the training process,
+model config,  hyperparameters, etc. and store them in a structured way''' 
 
 def has_tensorboard(dirname):
     if not os.path.isdir(dirname):

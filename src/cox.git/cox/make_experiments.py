@@ -5,6 +5,10 @@ import subprocess
 import json
 import argparse
 from importlib.util import spec_from_file_location, module_from_spec
+'''this file loads teh experiment configs specified by the user and then calls
+the generate_experiments func from generator.py to generate the experiments and
+then calls the consolidate_experiment func from generator.py to generate the
+script to run the experiments'''
 
 def main():
     parser = argparse.ArgumentParser(description='Generate experiments to be run.')

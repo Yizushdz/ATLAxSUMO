@@ -2,6 +2,9 @@ from glob import glob
 import os
 from argparse import ArgumentParser
 import shutil
+'''utility script designed to import experiment directories from a study into 
+a central output directory. It helps organize and manage experiment results, 
+ensuring that they are easily accessible for analysis and comparison'''
 
 def main():
     parser = ArgumentParser(description='Import cox directories from a study')

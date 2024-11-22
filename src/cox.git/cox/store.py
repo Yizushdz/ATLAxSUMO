@@ -7,6 +7,9 @@ from .utils import *
 import os
 import warnings
 from tensorboardX import SummaryWriter
+'''the store class is responsible for serializing and saving data from experiment runs.
+provides functionality to manage exp data, like logging to a table and tensorboard, and 
+organizing data in a table format. The class also provides methods to access the tensorboard'''
 
 TABLE_OBJECT_DIR = '.table_objects'
 SAVE_DIR = 'save'
@@ -186,6 +189,8 @@ class Store():
 
         table.update_row(update_dict)
 
+'''The Table class is responsible for managing a single table in the store. It
+'''
 class Table():
     '''
     A class representing a single storer table, to be written to by
@@ -426,6 +431,11 @@ def schema_from_dict(d, alternative=OBJECT):
     return schema
 
 def _clean_dict(d, schema):
+    '''checks the type of the values in the dictionary and converts them to the
+    correct type if possible. If the value is a tensor or numpy array with shape
+    (), we convert it to a python scalar. This is useful for logging to tables
+    and tensorboard, where we want to store the data in a way that is easily
+    readable.'''
     d = dict(d)
     for k, v in d.items():
         v_type = schema[k]
