@@ -71,6 +71,7 @@ class Trainer():
                        save_frames=self.SAVE_FRAMES,
                        save_frames_path=self.SAVE_FRAMES_PATH)
 
+        # initializes many environments, based off the number of actors
         self.envs = [env_constructor() for _ in range(self.NUM_ACTORS)]
         self.params.AGENT_TYPE = "discrete" if self.envs[0].is_discrete else "continuous"
         self.params.NUM_ACTIONS = self.envs[0].num_actions
@@ -171,7 +172,8 @@ class Trainer():
             print("Not saving results to cox store.")
 
     
-
+    '''creates model w/ perturbations. creates schedulers, and BoundedModule
+    object if method is convex-relax'''
     def create_relaxed_model(self, time_in_state=False):
         # Create state perturbation model for robust PPO training.
         if isinstance(self.policy_model, CtsPolicy):
@@ -194,7 +196,8 @@ class Trainer():
         else:
             raise NotImplementedError
 
-    """Initialize sarsa training."""
+    '''creates sarsa model w/ perturbations. creates schedulers and defines
+    optimizer'''
     def setup_sarsa(self, lr_schedule, eps_scheduler, beta_scheduler):
         # Create the Sarsa model, with S and A as the input.
         self.sarsa_model = ValueDenseNet(self.NUM_FEATURES + self.NUM_ACTIONS, self.INITIALIZATION)
@@ -206,7 +209,7 @@ class Trainer():
         dummy_input = torch.randn(1, self.NUM_FEATURES + self.NUM_ACTIONS)
         self.relaxed_sarsa_model = BoundedModule(self.sarsa_model, dummy_input)
     
-    """Initialize imitation (snooping) training."""
+    '''imitation training setup, imitates another policy'''
     def setup_imit(self, train=True, lr=1e-3):
         # Create a same policy network. 
         self.imit_network = self.policy_net_class(self.NUM_FEATURES, self.NUM_ACTIONS,
@@ -224,7 +227,8 @@ class Trainer():
             else:
                 self.imit_opt = optim.SGD(self.imit_network.parameters(), lr=lr)
 
-    """Training imitation agent"""
+    '''performs training steps for imitation agent, updating imitation network 
+    to match actions of another policy'''
     def imit_steps(self, all_actions, all_states, all_not_dones, num_epochs):
         assert len(all_actions) == len(all_states)
         for e in range(num_epochs):
@@ -267,7 +271,7 @@ class Trainer():
             
             print('Epoch [%d/%d] avg loss: %.8f' % (e+1, num_epochs, total_loss_val / len(all_actions)))
                  
-
+    '''creates a Store object to store training data, adds tables'''
     def setup_stores(self, store):
         # Logging setup
         self.store = store
@@ -330,7 +334,7 @@ class Trainer():
             }
             self.store.add_table('robust_ppo_data', robust_cols)
 
-
+    '''allows accesing attributes of the params object directly'''
     def __getattr__(self, x):
         '''
         Allows accessing self.A instead of self.params.A
@@ -342,6 +346,8 @@ class Trainer():
         except KeyError:
             raise AttributeError(x)
 
+    '''calculates Generalized Advantage Estimation, discounted returns, and
+    true reward'''
     def advantage_and_return(self, rewards, values, not_dones):
         """
         Calculate GAE advantage, discounted returns, and 
@@ -359,6 +365,7 @@ class Trainer():
         deltas = rewards + self.GAMMA * V_s_tp1 - values
 
         # now we need to discount each path by gamma * lam
+        # initialize tensors to hold the advantages and returns
         advantages = ch.zeros_like(rewards)
         returns = ch.zeros_like(rewards)
         indices = get_path_indices(not_dones)
@@ -370,19 +377,17 @@ class Trainer():
 
         return advantages.clone().detach(), returns.clone().detach()
 
+    '''Resets environments and returns initial state with shape:
+    (# actors, 1, ... state_shape)'''
     def reset_envs(self, envs):
-        '''
-        Resets environments and returns initial state with shape:
-        (# actors, 1, ... state_shape)
-	    '''
         if self.CPU:
             return cpu_tensorize([env.reset() for env in envs]).unsqueeze(1)
         else:
             return cu_tensorize([env.reset() for env in envs]).unsqueeze(1)
 
+    '''Simulate a "step" by several actors on their respective environments'''
     def multi_actor_step(self, actions, envs):
         '''
-        Simulate a "step" by several actors on their respective environments
         Inputs:
         - actions, list of actions to take
         - envs, list of the environments in which to take the actions
@@ -411,6 +416,8 @@ class Trainer():
         data = list(map(tensor_maker, [normed_rewards, states, not_dones]))
         return [completed_episode_info, *data]
 
+    '''running multiple trajectories (sequences of states, actions, and rewards) 
+    in parallel environments, collecting data'''
     def run_trajectories(self, num_saps, return_rewards=False, should_tqdm=False,
             collect_adversary_trajectory=False):
         """
@@ -648,7 +655,7 @@ class Trainer():
 
         return to_ret
 
-    """Conduct adversarial attack using value network."""
+    '''applies an attack to the last states, returning the perturbed states'''
     def apply_attack(self, last_states):
         if self.params.ATTACK_RATIO < random.random():
             # Only attack a portion of steps.
@@ -892,7 +899,8 @@ class Trainer():
 
         return to_ret
 
-
+    '''create minibatches. for each minibatch, calculate the q-values, q-loss, and
+    the value loss. Creates a BoundedTensor using PerturbationLpNorm.'''
     def sarsa_steps(self, saps):
         # Begin advanged logging code
         assert saps.unrolled
@@ -965,7 +973,7 @@ class Trainer():
 
         return q_loss, q.mean()
 
-
+    '''for current step, determine correct policy and value model, and take a step'''
     def take_steps(self, saps, logging=True, value_only=False, adversary_step=False, increment_scheduler=True):
         if adversary_step:
             # collect adversary trajectory is only valid in minimax training mode.
@@ -1090,6 +1098,7 @@ class Trainer():
         val_loss = val_loss.mean().item()
         return policy_loss, surr_loss, entropy_bonus, val_loss
 
+    '''get average episode reward, calls train_step_impl()'''
     def train_step(self):
         if self.MODE == "adv_ppo" or self.MODE == "adv_trpo" or self.MODE == "adv_sa_ppo":
             avg_ep_reward = 0.0
@@ -1108,6 +1117,7 @@ class Trainer():
         print()
         return avg_ep_reward
 
+    '''collect saps, take steps, and log the results, return average episode reward'''
     def train_step_impl(self, adversary_step=False, increment_scheduler=True):
         '''
         Take a training step, by first collecting rollouts, then 
@@ -1160,6 +1170,7 @@ class Trainer():
 
         return avg_ep_reward
 
+    '''collects saps, calls sarsa_steps, returns average episode reward'''
     def sarsa_step(self):
         '''
         Take a training step, by first collecting rollouts, and 
@@ -1185,6 +1196,7 @@ class Trainer():
         self.n_steps += 1
         return avg_ep_reward
 
+    '''call run_test_trajectories, returns current episode data'''
     def run_test(self, max_len=2048, compute_bounds=False, use_full_backward=False, original_stdev=None):
         print("-" * 80)
         start_time = time.time()
@@ -1211,6 +1223,7 @@ class Trainer():
             # Unroll the trajectories (actors, T, ...) -> (actors*T, ...)
         return ep_length, ep_reward, actions.cpu().numpy(), action_means.cpu().numpy(), states.cpu().numpy(), kl_upper_bound
 
+    '''iterates over len of trajectories, applies attack, returns episode data'''
     def run_test_trajectories(self, max_len, should_tqdm=False):
         # Arrays to be updated with historic info
         envs = self.envs
@@ -1329,6 +1342,7 @@ class Trainer():
         
         return to_ret
 
+    '''extracts agent data from Cox table to be fed into agent_from_data'''
     @staticmethod
     def agent_from_data(store, row, cpu, extra_params=None, override_params=None, excluded_params=None):
         '''
@@ -1403,6 +1417,7 @@ class Trainer():
 
         return agent, agent_params
 
+    '''constructs agent from parameters, returns it as a Trainer object'''
     @staticmethod
     def agent_from_params(params, store=None):
         '''
