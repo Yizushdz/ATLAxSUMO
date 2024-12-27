@@ -117,7 +117,8 @@ class ValueDenseNet(nn.Module):
     def continue_history(self):
         return
 
-
+'''packs features into suitable inputs for RNN and LSTM networks.
+splits the features into episodes based on not_dones, pads the episodes, and packs them.'''
 def pack_history(features, not_dones):
     # Features has dimension (N, state_dim), where N contains a few episodes
     # not_dones splits these episodes (0 in not_dones is end of an episode)
@@ -140,6 +141,7 @@ def pack_history(features, not_dones):
     packed = pack_padded_sequence(padded, lengths, batch_first=True, enforce_sorted=False)
     return packed
 
+'''unpacks the padded features into a single tensor, removing the padding.'''
 def unpack_history(padded_pieces, lengths):
     # padded pieces in shape (batch, time, hidden)
     # lengths in shape (batch,)
@@ -282,6 +284,7 @@ class ValueLSTMNet(nn.Module):
 
     def continue_history(self):
         self.paused = False
+
 
 ########################
 ### POLICY NETWORKS
@@ -740,6 +743,7 @@ class CtsPolicySAC(CtsPolicy):
 ## Retrieving networks
 # Make sure to add newly created networks to these dictionaries!
 
+# defines the policy networks {"DiscPolicy": DiscPolicy, "CtsPolicy": CtsPolicy}
 POLICY_NETS = {
     "DiscPolicy": DiscPolicy,
     "CtsPolicy": CtsPolicy,
@@ -747,6 +751,7 @@ POLICY_NETS = {
     "CtsPolicySAC": CtsPolicySAC,
 }
 
+# defines the value networks
 VALUE_NETS = {
     "ValueNet": ValueDenseNet,
 }
@@ -757,7 +762,7 @@ def partialclass(cls, *args, **kwds):
         __init__ = functools.partialmethod(cls.__init__, *args, **kwds)
     return NewCls
 
-
+# defines the activation functions {"tanh": nn.Tanh}
 ACTIVATIONS = {
     "tanh": nn.Tanh,
     "relu": nn.ReLU,

@@ -21,6 +21,7 @@ class Env:
     '''
     def __init__(self, game, norm_states, norm_rewards, params, add_t_with_horizon=None, clip_obs=None, clip_rew=None, 
             show_env=False, save_frames=False, save_frames_path=""):
+        # "game" must be a registered gym environment in the OpenAI gym
         self.env = gym.make(game)
         clip_obs = None if clip_obs < 0 else clip_obs
         clip_rew = None if clip_rew < 0 else clip_rew

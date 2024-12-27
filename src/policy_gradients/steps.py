@@ -29,6 +29,8 @@ Layout of this file:
         - ppo_step
         - trpo_step
 '''
+
+'''normalize advantages to have mean 0 and std 1'''
 def adv_normalize(adv, mask=None):
     if mask is None:
         if adv.nelement() == 1:

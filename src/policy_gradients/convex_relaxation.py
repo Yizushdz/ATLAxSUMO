@@ -76,6 +76,7 @@ class RelaxedCtsPolicyForState(nn.Module):
 def intermediate_to_kl(lb, ub, means, stdev=None):
     lb = lb - means
     ub = ub - means
+    # Use the maximum of the absolute value of the lower and upper bounds.
     u = torch.max(lb.abs(), ub.abs())
     if stdev is None:
         return (u * u).sum(axis=-1, keepdim=True)
@@ -137,6 +138,7 @@ def compute_perturbations(model, x, means, perturbations):
     x = BoundedTensor(x, ptb=PerturbationLpNorm(norm=np.inf, eps=0))
     inputs = (x, means)
     for p in perturbations:
+        # Set each layer's perturbation eps and log_stdev's perturbation.
         x.ptb.eps = p
         lb, ub = model.compute_bounds(inputs, IBP=use_ibp, C=None, method=method, bound_lower=True, bound_upper=True)
         lb = lb.detach().cpu().numpy().squeeze()

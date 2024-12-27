@@ -20,7 +20,7 @@ Sorted into categories:
 
 CKPTS_TABLE = 'checkpoints'
 
-
+'''a custom dictionary subclass designed to facilitate attribute-style access to its items'''
 class Parameters(dict): 
     og_getattr = dict.__getitem__
     og_setattr = dict.__setitem__

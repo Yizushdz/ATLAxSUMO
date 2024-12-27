@@ -8,6 +8,7 @@ from sklearn.metrics import pairwise_distances
 from .steps import value_loss_returns, value_loss_gae, adv_normalize
 
 
+'''logs the updates to the weights of the neural network during training.'''
 def log_weight_updates(agent, old_params, new_params, table='weight_updates'):
     row = {}
     for name in old_params.keys():
@@ -36,6 +37,7 @@ def log_weight_updates(agent, old_params, new_params, table='weight_updates'):
 # Understanding TRPO approximations for KL constraint
 #####
 
+'''logs the KL divergence and clipping ratio constraints during training'''
 def paper_constraints_logging(agent, saps, old_pds, table):
     '''Computes average, max KL and max clipping ratio'''
     # New mean and variance.
