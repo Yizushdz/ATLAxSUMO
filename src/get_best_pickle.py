@@ -7,6 +7,9 @@ import pickle
 from policy_gradients.torch_utils import *
 import torch as ch
 
+'''this file is used to extract the best model from a training run, 
+and save it to a pickle file. The pickle file can be loaded by the
+policy_gradients/robust_ppo.py file to run the model on the environment.'''
 # Avoid HDF5 error
 os.environ['HDF5_USE_FILE_LOCKING']='FALSE'
 

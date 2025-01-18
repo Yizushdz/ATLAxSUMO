@@ -2,6 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 import argparse
+
+'''this file is used to parse the results of the optimal attack experiments.
+It will go through all the folders in the given path and find the optimal attack results.'''
 parser = argparse.ArgumentParser()
 parser.add_argument('path', type=str)
 args = vars(parser.parse_args())

@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 import itertools
+'''utils.py: Utility functions for the project'''
 
 def dict_product(d):
     '''

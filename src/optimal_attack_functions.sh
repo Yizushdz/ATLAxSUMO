@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# This file is used to evaluate RL agents under different attack scenarios.
 if [[ -z "$nthreads" ]]; then
     nthreads=$(($(nproc --all)/2))
 fi

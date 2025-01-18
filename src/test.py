@@ -20,7 +20,8 @@ import logging
 
 logging.disable(logging.INFO)
 
-
+'''this function is used to test a pre-trained model, it can be used to 
+test the model with or without attack'''
 def main(params):
     override_params = copy.deepcopy(params)
     excluded_params = ['config_path', 'out_dir_prefix', 'num_episodes', 'row_id', 'exp_id',

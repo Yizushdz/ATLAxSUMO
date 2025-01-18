@@ -37,6 +37,7 @@ class Tee(object):
         self.file.flush()
         self.stream.flush()
 
+'''defines the main function for the RL training loop'''
 def main(params):
     for k, v in zip(params.keys(), params.values()):
         assert v is not None, f"Value for {k} is None"
@@ -224,6 +225,7 @@ def main(params):
     store.close()
     return ret
 
+'''function to convert boolean string to boolean'''
 def str2bool(v):
     if isinstance(v, bool):
         return v
@@ -234,6 +236,7 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+'''function to add common parser options in command line'''
 def add_common_parser_opts(parser):
     # Basic setup
     parser.add_argument('--game', type=str, help='gym game')
@@ -382,7 +385,7 @@ def override_json_params(params, json_params, excluding_params):
     json_params.update({k: params[k] for k in params if params[k] is not None})
     return json_params
 
-
+'''calling the function below. serves as the entry point for the main RL training loop'''
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate experiments to be run.')
     parser.add_argument('--config-path', type=str, required=True,

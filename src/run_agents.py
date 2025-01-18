@@ -11,6 +11,12 @@ from glob import glob
 from os import path
 from run import main, add_common_parser_opts, override_json_params
 import json
+'''this file is used to run all the experiments specified in the config files
+in the given directory. It will run the experiments in parallel, using the
+number of physical CPUs specified by the user. The user can also specify the
+number of threads to use for training and attacks. The user can also specify
+whether to run attacks after training finishes'''
+
 
 q = JoinableQueue()
 

@@ -5,6 +5,8 @@ if [[ -z "$nthreads" ]]; then
 fi
 echo "Using $nthreads threads."
 
+# this file is used to facilitate the evaluation of RL agents under diff attacks scenarios.
+
 # Function to show attack results. Not used for scanning.
 function show_rewards () {
     output_dir=$1
