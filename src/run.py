@@ -203,6 +203,7 @@ def main(params):
                 checkpoint_dict = add_adversary_to_table(p, checkpoint_dict)
                 store['checkpoints'].append_row(checkpoint_dict)
 
+            '''****actual call for training****'''
             mean_reward = p.train_step()
             rewards.append(mean_reward)
 
@@ -385,7 +386,8 @@ def override_json_params(params, json_params, excluding_params):
     json_params.update({k: params[k] for k in params if params[k] is not None})
     return json_params
 
-'''calling the function below. serves as the entry point for the main RL training loop'''
+'''calling the function below. serves as the entry point for the main RL training loop.
+it takes in command line arguments and a json file for the configuration. then calls main() function'''
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate experiments to be run.')
     parser.add_argument('--config-path', type=str, required=True,
@@ -397,15 +399,18 @@ if __name__ == '__main__':
     parser.add_argument('--adv-policy-only', action='store_true', required=False, help='Run adversary only, by setting main agent learning rate to 0')
     parser.add_argument('--deterministic', action='store_true', help='disable Gaussian noise in action for --adv-policy-only mode')
     parser.add_argument('--seed', type=int, help='random seed', default=-1)
+    # take arguments from the json file, add along with user specified arguments
     parser = add_common_parser_opts(parser)
     
+    # turn user inputs for the above arguments into a Namespace object for access like args.game
     args = parser.parse_args()
-
+    # turn the Namespace object into a python dictionary for access like params['game']
     params = vars(args)
     seed = params['seed']
     json_params = json.load(open(args.config_path))
 
     extra_params = ['config_path', 'out_dir_prefix', 'load_model', 'no_load_adv_policy', 'adv_policy_only', 'deterministic', 'seed']
+    # combine the json params with the user specified params, user specified params will override json params if there is a conflict
     params = override_json_params(params, json_params, extra_params)
 
     if params['adv_policy_only']:

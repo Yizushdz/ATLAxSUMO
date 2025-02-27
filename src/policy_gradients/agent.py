@@ -435,6 +435,8 @@ class Trainer():
         - action_logprobs: (# actors, self.T, ) log probabilities of each action
         - states: (# actors, self.T, ... state_shape) states
         """
+        # this will be true if we are in adversarial step, it disables the normalizer and 
+        # stores the original flags to restore them after the adversarial step.
         if collect_adversary_trajectory:
             # The adversary does not change environment normalization.
             # So a trained adversary can be applied to the original policy when it is trained as an optimal attack.
@@ -488,6 +490,7 @@ class Trainer():
             # States are collected before the perturbation.
             states[:, 0, :] = initial_states
             last_states = states[:, 0, :]
+        ''' this for-loop will run for traj_length = int(num_saps // self.NUM_ACTORS)'''
         for t in iterator:
             # assert shape_equal([self.NUM_ACTORS, self.NUM_FEATURES], last_states)
             # Retrieve probabilities:
@@ -547,7 +550,7 @@ class Trainer():
             #     assert shape_equal([self.NUM_ACTORS, 1], next_actions)
             # else:
             #     assert shape_equal([self.NUM_ACTORS, 1, self.policy_model.action_dim])
-
+            # take a step in the env, return the rewards, next states, and whether the env is done
             ret = self.multi_actor_step(next_actions, envs)
 
             # done_info = List of (length, reward) pairs for each completed trajectory
@@ -626,6 +629,7 @@ class Trainer():
                 last_states = self.apply_attack(last_states)
             states[:, -1] = last_states.unsqueeze(1)
 
+        # restore the normalizer read only flags since we have finished the adversary step.
         if collect_adversary_trajectory:
             # Finished adversary step. Take new samples for normalizing environment.
             for e, flag in zip(self.envs, old_env_read_only_flags):
@@ -834,6 +838,7 @@ class Trainer():
     def collect_saps(self, num_saps, should_log=True, return_rewards=False,
                      should_tqdm=False, test=False, collect_adversary_trajectory=False):
         table_name_suffix = "_adv" if collect_adversary_trajectory else ""
+        # prevent gradients from being computed
         with torch.no_grad():
             # Run trajectories, get values, estimate advantage
             output = self.run_trajectories(num_saps,
@@ -1098,7 +1103,7 @@ class Trainer():
         val_loss = val_loss.mean().item()
         return policy_loss, surr_loss, entropy_bonus, val_loss
 
-    '''get average episode reward, calls train_step_impl()'''
+    '''runs the two main loops for ATLA by calling train_step_impl()'''
     def train_step(self):
         if self.MODE == "adv_ppo" or self.MODE == "adv_trpo" or self.MODE == "adv_sa_ppo":
             avg_ep_reward = 0.0
@@ -1119,6 +1124,8 @@ class Trainer():
 
     '''collect saps, take steps, and log the results, return average episode reward'''
     def train_step_impl(self, adversary_step=False, increment_scheduler=True):
+
+
         '''
         Take a training step, by first collecting rollouts, then 
         calculating advantages, then taking a policy gradient step, and 
