@@ -214,7 +214,10 @@ def main(params):
 
         finalize_table(i, False, rewards)
     except KeyboardInterrupt:
+        print("Training interrupted by user.")
+        # Save the model before exiting.
         finalize_table(i, True, rewards)
+        print(f'Models saved to {store.path}')
         ret = 1
     except:
         print("An error occurred during training:")
@@ -240,7 +243,7 @@ def str2bool(v):
 '''function to add common parser options in command line'''
 def add_common_parser_opts(parser):
     # Basic setup
-    parser.add_argument('--game', type=str, help='gym game')
+    # parser.add_argument('--game', type=str, help='gym game')
     parser.add_argument('--mode', type=str, choices=['ppo', 'trpo', 'robust_ppo', 'adv_ppo', 'adv_trpo', 'adv_sa_ppo'],
                         help='pg alg')
     parser.add_argument('--out-dir', type=str,
@@ -435,4 +438,5 @@ if __name__ == '__main__':
         params['out_dir'] = os.path.join(args.out_dir_prefix, params['out_dir'])
         print(f"setting output dir to {params['out_dir']}")
     main(params)
+    print("MAIN PASSED")
 

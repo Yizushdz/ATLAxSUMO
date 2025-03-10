@@ -21,7 +21,8 @@ from .steps import value_step, step_with_mode, pack_history
 from .logging import *
 
 from multiprocessing import Process, Queue
-from .custom_env import Env
+'''from .custom_env import Env'''
+from sumo_rl import SumoEnvironment as Env
 from .convex_relaxation import get_kl_bound as get_state_kl_bound
 
 class Trainer():
@@ -61,21 +62,27 @@ class Trainer():
         def env_constructor():
             # Whether or not we should add the time to the state
             horizon_to_feed = self.T if time_in_state else None
-            return Env(self.GAME, norm_states=self.NORM_STATES,
-                       norm_rewards=self.NORM_REWARDS,
-                       params=self.params,
-                       add_t_with_horizon=horizon_to_feed,
-                       clip_obs=self.CLIP_OBSERVATIONS,
-                       clip_rew=self.CLIP_REWARDS,
-                       show_env=self.SHOW_ENV,
-                       save_frames=self.SAVE_FRAMES,
-                       save_frames_path=self.SAVE_FRAMES_PATH)
+            # based on num of CPUs in the machine running the code
+            num_cpu = 1
+            return Env(net_file='2way-single-intersection/single-intersection.net.xml',
+                    route_file='2way-single-intersection/single-intersection-vhvh.rou.xml',
+                    out_csv_name='output/waiting_times{}'.format(num_cpu),
+                    single_agent=True,
+                    # set gui=True if you want to see the actual simulation
+                    use_gui=False,
+                    # if single episode taking long to train,num_seconds = a lower value
+                    num_seconds=1000,
+                    max_depart_delay=0)
 
         # initializes many environments, based off the number of actors
         self.envs = [env_constructor() for _ in range(self.NUM_ACTORS)]
-        self.params.AGENT_TYPE = "discrete" if self.envs[0].is_discrete else "continuous"
-        self.params.NUM_ACTIONS = self.envs[0].num_actions
-        self.params.NUM_FEATURES = self.envs[0].num_features
+        # self.params.AGENT_TYPE = "discrete" if self.envs[0].is_discrete else "continuous"
+        self.params.AGENT_TYPE = "continuous"
+        # self.params.NUM_ACTIONS = self.envs[0].num_actions
+        random_key = random.choice(list(self.envs[0].traffic_signals.keys()))
+        self.params.NUM_ACTIONS = self.envs[0].traffic_signals[random_key].action_space.n
+        # self.params.NUM_FEATURES = self.envs[0].num_features
+        self.params.NUM_FEATURES = self.envs[0].traffic_signals[random_key].observation_space.shape[0]
         self.policy_step = step_with_mode(self.MODE, adversary=False)
         self.adversary_policy_step = step_with_mode(self.MODE, adversary=True)
         self.params.MAX_KL_INCREMENT = (self.params.MAX_KL_FINAL - self.params.MAX_KL) / self.params.TRAIN_STEPS
