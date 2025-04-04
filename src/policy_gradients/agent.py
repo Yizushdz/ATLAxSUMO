@@ -22,7 +22,7 @@ from .logging import *
 
 from multiprocessing import Process, Queue
 '''from .custom_env import Env'''
-from sumo_rl import SumoEnvironment as Env
+from sumo_rl.environment.env import SumoEnvironment as Env
 from .convex_relaxation import get_kl_bound as get_state_kl_bound
 
 class Trainer():
@@ -69,7 +69,7 @@ class Trainer():
                     out_csv_name='output/waiting_times{}'.format(num_cpu),
                     single_agent=True,
                     # set gui=True if you want to see the actual simulation
-                    use_gui=False,
+                    use_gui=True,
                     # if single episode taking long to train,num_seconds = a lower value
                     num_seconds=1000,
                     max_depart_delay=0)
@@ -387,10 +387,25 @@ class Trainer():
     '''Resets environments and returns initial state with shape:
     (# actors, 1, ... state_shape)'''
     def reset_envs(self, envs):
-        if self.CPU:
-            return cpu_tensorize([env.reset() for env in envs]).unsqueeze(1)
-        else:
-            return cu_tensorize([env.reset() for env in envs]).unsqueeze(1)
+        observations = [env.reset() for env in envs]  # List of results from reset()
+        obs_tensors = []
+        for obs in observations:
+            if isinstance(obs, tuple):
+                obs = obs[0]  # Unpack the observation (ignore 'info')
+            if isinstance(obs, dict):
+                obs_values = list(obs.values())  # Extract just the values (features)
+                obs_array = np.array(obs_values, dtype=np.float32)  # Convert list of arrays to single array
+            elif isinstance(obs, np.ndarray):
+                obs_array = obs  # Already a NumPy array, use it directly
+            else:
+                raise TypeError(f"Unexpected type from env.reset(): {type(obs)}")
+            obs_tensor = cpu_tensorize(obs_array.tolist()) if self.CPU else cu_tensorize(obs_array.tolist())
+            obs_tensors.append(obs_tensor)
+        return ch.stack(obs_tensors).unsqueeze(1)  # Stack tensors for batch processing
+        # if self.CPU:
+        #     return cpu_tensorize([env.reset() for env in envs]).unsqueeze(1)
+        # else:
+        #     return cu_tensorize([env.reset() for env in envs]).unsqueeze(1)
 
     '''Simulate a "step" by several actors on their respective environments'''
     def multi_actor_step(self, actions, envs):
@@ -409,10 +424,14 @@ class Trainer():
         completed_episode_info = []
         for action, env in zip(actions, envs):
             gym_action = action[0].cpu().numpy()
-            new_state, normed_reward, is_done, info = env.step(gym_action)
+            chosen_action = gym_action.argmax(axis=-1)  # Select the action with the highest value
+            new_state, normed_reward, terminated, is_done, info = env.step(chosen_action)
             if is_done:
-                completed_episode_info.append(info['done'])
+                completed_episode_info.append(info)
                 new_state = env.reset()
+                # convert to numpy array and remove the extra information
+                new_state = np.array(new_state[0])
+                breakk = input("Break:::")
 
             # Aggregate
             normed_rewards.append([normed_reward])
@@ -465,6 +484,8 @@ class Trainer():
         shape = (self.NUM_ACTORS, traj_length)
         all_zeros = [ch.zeros(shape) for i in range(3)]
         rewards, not_dones, action_log_probs = all_zeros
+        # used to keep rewards for 1 single episode, to compute average
+        episode_rewards = []
 
         if collect_adversary_trajectory:
             # collect adversary trajectory is only valid in minimax training mode.
@@ -523,12 +544,16 @@ class Trainer():
                     # get log likelyhood for this perturbation.
                     next_adv_perturbation_log_probs = self.adversary_policy_model.get_loglikelihood(adv_perturbation_pds, next_adv_perturbations)
                     # add the perturbation to state (we learn a residual).
+                    # print(f"APPLYING OPTIMAL PERTURBATION TO: {last_states}")
                     last_states = last_states + ch.nn.functional.hardtanh(next_adv_perturbations) * self.ADV_EPS
+                    # print(f"APPLIED OPTIMAL PERTURBATION, NOW: {last_states}")
                     # the perturbation itself is the action (similar to the next_actions variable below)
                     next_adv_perturbations = next_adv_perturbations.unsqueeze(1)
             else:
                 # (optional) apply naive adversarial training (not optimal attack)
+                print(f"APPLYING NON-OPTIMAL PERTURBATION TO: {last_states}")
                 maybe_attacked_last_states = self.apply_attack(last_states)
+                print(f"APPLIED NON-OPTIMAL PERTURBATION, NOW: {maybe_attacked_last_states}")
                 # Note that for naive adversarial training, we use the state under perturbation to get the actions.
                 # However in the trajectory we may still save the state without perturbation as the true environment states are not perturbed.
                 # (depending on if self.COLLECT_PERTURBED_STATES is set)
@@ -623,6 +648,7 @@ class Trainer():
                     # When perturbed state is collected, we also do not neeed the +1 shift
                     total[:, t] = v
             last_states = next_states[:, 0, :]
+            print(f"rewards value: {rewards}, type: {type(rewards)}")
 
         if collect_perturbed_state:
             if is_advpolicy_training:
@@ -644,8 +670,9 @@ class Trainer():
 
 
         # Calculate the average episode length and true rewards over all the trajectories
+        print(f"completed_episode_info value: {completed_episode_info}, type: {type(completed_episode_info)}")
         infos = np.array(list(zip(*completed_episode_info)))
-        # print(infos)
+        print(f"infos value: {infos}, type: {type(infos)}")
         if infos.size > 0:
             _, ep_rewards = infos
             avg_episode_length, avg_episode_reward = np.mean(infos, axis=1)
@@ -852,7 +879,7 @@ class Trainer():
                                            return_rewards=return_rewards,
                                            should_tqdm=should_tqdm,
                                            collect_adversary_trajectory=collect_adversary_trajectory)
-
+            print("EXITING RUN TRAJECTORIES")
             if not return_rewards:
                 avg_ep_length, avg_ep_reward, trajs = output
             else:

@@ -127,6 +127,7 @@ def pack_history(features, not_dones):
     all_pieces = []
     lengths = []
     start = 0
+    end = features.size(0)  # Initialize 'end' to avoid UnboundLocalError
     for i in nnz:
         end = i + 1
         all_pieces.append(features[start:end, :])
@@ -137,6 +138,7 @@ def pack_history(features, not_dones):
         all_pieces.append(features[end:, :])
         lengths.append(features.size(0) - end)
     # print(lengths)
+    print("0 values in not_dones:", ch.nonzero(1.0 - not_dones, as_tuple=False))
     padded = pad_sequence(all_pieces, batch_first=True)
     packed = pack_padded_sequence(padded, lengths, batch_first=True, enforce_sorted=False)
     return packed

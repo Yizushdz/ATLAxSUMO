@@ -203,7 +203,7 @@ def main(params):
                 checkpoint_dict = add_adversary_to_table(p, checkpoint_dict)
                 store['checkpoints'].append_row(checkpoint_dict)
 
-            '''****actual call for training****'''
+            # ****actual call for training****
             mean_reward = p.train_step()
             rewards.append(mean_reward)
 
