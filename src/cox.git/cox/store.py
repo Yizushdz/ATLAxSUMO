@@ -322,8 +322,11 @@ class Table():
                 uid = str(uuid4())
                 fname = os.path.join(self._table_obj_dir, uid)
                 if v_type == PICKLE:
-                    with open(fname, 'wb') as f:
-                        pickle.dump(v, f)
+                    try:
+                        with open(fname, 'wb') as f:
+                            pickle.dump(v, f)
+                    except Exception as e:
+                        print(f"[!] Failed to pickle key: '{k}', type: {type(v)}, error: {e}")
                 else:
                     if 'state_dict' in dir(v):
                         v = v.state_dict()

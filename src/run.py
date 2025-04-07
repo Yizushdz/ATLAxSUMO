@@ -438,5 +438,5 @@ if __name__ == '__main__':
         params['out_dir'] = os.path.join(args.out_dir_prefix, params['out_dir'])
         print(f"setting output dir to {params['out_dir']}")
     main(params)
-    print("MAIN PASSED")
+    print("MAIN PASSED, TRAINING COMPLETE")
 

@@ -421,17 +421,16 @@ class Trainer():
         - not_dones, an actors-length tensor with 0 if terminal, 1 otw
         '''
         normed_rewards, states, not_dones = [], [], []
-        completed_episode_info = []
+        completed_episode_length = -1
         for action, env in zip(actions, envs):
             gym_action = action[0].cpu().numpy()
             chosen_action = gym_action.argmax(axis=-1)  # Select the action with the highest value
             new_state, normed_reward, terminated, is_done, info = env.step(chosen_action)
             if is_done:
-                completed_episode_info.append(info)
+                completed_episode_length = info['step']
                 new_state = env.reset()
                 # convert to numpy array and remove the extra information
                 new_state = np.array(new_state[0])
-                breakk = input("Break:::")
 
             # Aggregate
             normed_rewards.append([normed_reward])
@@ -440,7 +439,7 @@ class Trainer():
 
         tensor_maker = cpu_tensorize if self.CPU else cu_tensorize
         data = list(map(tensor_maker, [normed_rewards, states, not_dones]))
-        return [completed_episode_info, *data]
+        return [completed_episode_length, *data]
 
     '''running multiple trajectories (sequences of states, actions, and rewards) 
     in parallel environments, collecting data'''
@@ -467,9 +466,10 @@ class Trainer():
             # The adversary does not change environment normalization.
             # So a trained adversary can be applied to the original policy when it is trained as an optimal attack.
             old_env_read_only_flags = []
-            for e in self.envs:
-                old_env_read_only_flags.append(e.normalizer_read_only)
-                e.normalizer_read_only = True
+            '''FIX LATER'''
+            # for e in self.envs:
+            #     old_env_read_only_flags.append(e.normalizer_read_only)
+            #     e.normalizer_read_only = True
 
         # Arrays to be updated with historic info
         envs = self.envs
@@ -479,13 +479,13 @@ class Trainer():
 
         # Holds information (length and true reward) about completed episodes
         completed_episode_info = []
+        # used to keep rewards for 1 single episode, to compute average
+        episode_rewards = []
         traj_length = int(num_saps // self.NUM_ACTORS)
 
         shape = (self.NUM_ACTORS, traj_length)
         all_zeros = [ch.zeros(shape) for i in range(3)]
         rewards, not_dones, action_log_probs = all_zeros
-        # used to keep rewards for 1 single episode, to compute average
-        episode_rewards = []
 
         if collect_adversary_trajectory:
             # collect adversary trajectory is only valid in minimax training mode.
@@ -587,7 +587,8 @@ class Trainer():
 
             # done_info = List of (length, reward) pairs for each completed trajectory
             # (next_rewards, next_states, next_dones) act like multi-actor env.step()
-            done_info, next_rewards, next_states, next_not_dones = ret
+            episode_length, next_rewards, next_states, next_not_dones = ret
+            episode_rewards.append(next_rewards)
             # Reset the policy (if the policy has memory if we are done)
             if next_not_dones.item() == 0:
                 self.policy_model.reset()
@@ -597,8 +598,16 @@ class Trainer():
 
             # If some of the actors finished AND this is not the last step
             # OR some of the actors finished AND we have no episode information
-            if len(done_info) > 0 and (t != self.T - 1 or len(completed_episode_info) == 0):
-                completed_episode_info.extend(done_info)
+            # if len(done_info) > 0 and (t != self.T - 1 or len(completed_episode_info) == 0):
+            #     completed_episode_info.extend(done_info)
+            # pack into a tuple of (length, reward) after we finish an episode
+            if next_not_dones[-1].item() == 0:
+                # get mean reward for this episode
+                avg_reward = np.mean(episode_rewards)
+                # pack into tuple of (length, reward) in completed_episode_info
+                completed_episode_info.append((episode_length, avg_reward))
+                # reset the episode rewards
+                episode_rewards = []
 
             # Update histories
             # each shape: (nact, t, ...) -> (nact, t + 1, ...)
@@ -648,7 +657,6 @@ class Trainer():
                     # When perturbed state is collected, we also do not neeed the +1 shift
                     total[:, t] = v
             last_states = next_states[:, 0, :]
-            print(f"rewards value: {rewards}, type: {type(rewards)}")
 
         if collect_perturbed_state:
             if is_advpolicy_training:
@@ -662,17 +670,16 @@ class Trainer():
                 last_states = self.apply_attack(last_states)
             states[:, -1] = last_states.unsqueeze(1)
 
+        '''FIX normalizer read only method to actually work'''
         # restore the normalizer read only flags since we have finished the adversary step.
-        if collect_adversary_trajectory:
-            # Finished adversary step. Take new samples for normalizing environment.
-            for e, flag in zip(self.envs, old_env_read_only_flags):
-                e.normalizer_read_only = flag
+        # if collect_adversary_trajectory:
+        #     # Finished adversary step. Take new samples for normalizing environment.
+        #     for e, flag in zip(self.envs, old_env_read_only_flags):
+        #         e.normalizer_read_only = flag
 
 
         # Calculate the average episode length and true rewards over all the trajectories
-        print(f"completed_episode_info value: {completed_episode_info}, type: {type(completed_episode_info)}")
         infos = np.array(list(zip(*completed_episode_info)))
-        print(f"infos value: {infos}, type: {type(infos)}")
         if infos.size > 0:
             _, ep_rewards = infos
             avg_episode_length, avg_episode_reward = np.mean(infos, axis=1)
@@ -879,7 +886,6 @@ class Trainer():
                                            return_rewards=return_rewards,
                                            should_tqdm=should_tqdm,
                                            collect_adversary_trajectory=collect_adversary_trajectory)
-            print("EXITING RUN TRAJECTORIES")
             if not return_rewards:
                 avg_ep_length, avg_ep_reward, trajs = output
             else:

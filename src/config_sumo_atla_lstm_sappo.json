@@ -65,7 +65,7 @@
     "share_weights": false,
     "show_env": false,
     "t": 2048,
-    "train_steps": 2441,
+    "train_steps": 3,
     "trpo_kl_reduce_func": "mean",
     "use_lstm_val": true,
     "val_epochs": 10,

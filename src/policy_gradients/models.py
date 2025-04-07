@@ -138,7 +138,6 @@ def pack_history(features, not_dones):
         all_pieces.append(features[end:, :])
         lengths.append(features.size(0) - end)
     # print(lengths)
-    print("0 values in not_dones:", ch.nonzero(1.0 - not_dones, as_tuple=False))
     padded = pad_sequence(all_pieces, batch_first=True)
     packed = pack_padded_sequence(padded, lengths, batch_first=True, enforce_sorted=False)
     return packed
