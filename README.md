@@ -31,7 +31,7 @@ This project comes with an `environment.yml` file that contains all the dependen
   If you have Conda installed, you can create a new environment with all the required dependencies by running the following command:
 
   ```bash
-  conda env create -f environment.yml
+  conda create --name name-of-your-choice --file environment.yml
   ```
 
   This command will automatically create a new Conda environment with all the necessary dependencies, such as `gym`, `numpy`, `torch`, and others.
@@ -41,7 +41,7 @@ This project comes with an `environment.yml` file that contains all the dependen
   Once the environment has been created, activate it by running:
 
   ```bash
-  conda create --name your-env-name-of-choice --file environment.yml
+  conda activate name-of-your-env
   ```
 
   Now, the environment is set up and ready to use! You can start running the project and training the agent.
