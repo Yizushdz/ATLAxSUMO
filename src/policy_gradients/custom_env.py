@@ -1,130 +1,83 @@
-import os
-import numpy as np
-from PIL import Image
-from gym.spaces.discrete import Discrete
-from gym.spaces.box import Box as Continuous
-import gym
-import random
+'''SUMO Environment Wrapper for ATLA implementation'''
 from .torch_utils import RunningStat, ZFilter, Identity, StateWithTime, RewardFilter
 
-class Env:
-    '''
-    A wrapper around the OpenAI gym environment that adds support for the following:
-    - Rewards normalization
-    - State normalization
-    - Adding timestep as a feature with a particular horizon T
-    Also provides utility functions/properties for:
-    - Whether the env is discrete or continuous
-    - Size of feature space
-    - Size of action space
-    Provides the same API (init, step, reset) as the OpenAI gym
-    '''
-    def __init__(self, game, norm_states, norm_rewards, params, add_t_with_horizon=None, clip_obs=None, clip_rew=None, 
-            show_env=False, save_frames=False, save_frames_path=""):
-        # "game" must be a registered gym environment in the OpenAI gym
-        self.env = gym.make(game)
-        clip_obs = None if clip_obs < 0 else clip_obs
-        clip_rew = None if clip_rew < 0 else clip_rew
+class SUMOEnvWrapper:
+    def __init__(self, env, norm_states=False, norm_rewards=None, add_t_with_horizon=None, 
+                 clip_obs=None, clip_rew=None, gamma=0.99):
+        """
+        Wraps a SUMO env to add normalization and time-as-feature capabilities.
+        - env: the original SUMO env instance
+        - norm_states: whether to normalize states (True/False)
+        - norm_rewards: "rewards", "returns", or None
+        - add_t_with_horizon: int (horizon) or None
+        """
 
-        # Environment type
-        self.is_discrete = type(self.env.action_space) == Discrete
-        assert self.is_discrete or type(self.env.action_space) == Continuous
+        # Allow disabling clipping if value is negative
+        clip_obs = None if clip_obs is not None and clip_obs < 0 else clip_obs
+        clip_rew = None if clip_rew is not None and clip_rew < 0 else clip_rew
 
-        # Number of actions
-        action_shape = self.env.action_space.shape
-        assert len(action_shape) <= 1 # scalar or vector actions
-        self.num_actions = self.env.action_space.n if self.is_discrete else 0 \
-                            if len(action_shape) == 0 else action_shape[0]
-        
-        # Number of features
-        assert len(self.env.observation_space.shape) == 1
-        self.num_features = self.env.reset().shape[0]
-
-        # Support for state normalization or using time as a feature
+        self.env = env
+        self.num_features = list(env.traffic_signals.values())[0].observation_space.shape[0]  # Assumes the base env has this attribute
         self.state_filter = Identity()
+        self.reward_filter = Identity()
+
+        # State normalization
         if norm_states:
-            self.state_filter = ZFilter(self.state_filter, shape=[self.num_features], \
-                                            clip=clip_obs)
+            self.state_filter = ZFilter(self.state_filter, shape=[self.num_features], clip=clip_obs)
+
+        # Add time step as feature
         if add_t_with_horizon is not None:
             self.state_filter = StateWithTime(self.state_filter, horizon=add_t_with_horizon)
-        
-        # Support for rewards normalization
-        self.reward_filter = Identity()
+
+        # Reward normalization
         if norm_rewards == "rewards":
             self.reward_filter = ZFilter(self.reward_filter, shape=(), center=False, clip=clip_rew)
         elif norm_rewards == "returns":
-            self.reward_filter = RewardFilter(self.reward_filter, shape=(), gamma=params.GAMMA, clip=clip_rew)
+            self.reward_filter = RewardFilter(self.reward_filter, shape=(), gamma=gamma, clip=clip_rew)
 
-        # Running total reward (set to 0.0 at resets)
-        self.total_true_reward = 0.0
+    def reset(self):
+        result = self.env.reset()
+        if isinstance(result, tuple):
+            state, info = result
+        else:
+            state = result
+            info = {}
 
-        # Set normalizers to read-write mode by default.
-        self._read_only = False
+        if hasattr(self.state_filter, 'reset'):
+            self.state_filter.reset()
+        if hasattr(self.reward_filter, 'reset'):
+            self.reward_filter.reset()
 
-        self.setup_visualization(show_env, save_frames, save_frames_path)
+        return self.state_filter(state, reset=True), info
 
-    # For environments that are created from a picked object.
-    def setup_visualization(self, show_env, save_frames, save_frames_path):
-        self.save_frames = save_frames
-        self.show_env = show_env
-        self.save_frames_path = save_frames_path
-        self.episode_counter = 0
-        self.frame_counter = 0
-        if self.save_frames:
-            print(f'We will save frames to {self.save_frames_path}!')
-            os.makedirs(os.path.join(self.save_frames_path, "000"), exist_ok=True)
-    
+
+    def step(self, action):
+        next_state, reward, terminated, truncated, info = self.env.step(action)
+        
+        # Handle state and reward normalization
+        filtered_state = self.state_filter(next_state)
+        filtered_reward = self.reward_filter(reward)
+        
+        if self.env.single_agent:  # If it's single-agent mode, return 5 values
+            return filtered_state, filtered_reward, terminated, truncated, info
+        else:  # If it's multi-agent mode, return 4 values (observations for each agent)
+            return filtered_state, filtered_reward, truncated, info
+
+
+    def render(self, *args, **kwargs):
+        return self.env.render(*args, **kwargs)
+
     @property
     def normalizer_read_only(self):
-        return self._read_only
+        return getattr(self.state_filter, 'read_only', False)
 
     @normalizer_read_only.setter
     def normalizer_read_only(self, value):
-        self._read_only = bool(value)
-        if isinstance(self.state_filter, ZFilter):
-            if not hasattr(self.state_filter, 'read_only') and value:
-                print('Warning: requested to set state_filter.read_only=True but the underlying ZFilter does not support it.')
-            elif hasattr(self.state_filter, 'read_only'):
-                self.state_filter.read_only = self._read_only
-        if isinstance(self.reward_filter, ZFilter) or isinstance(self.reward_filter, RewardFilter):
-            if not hasattr(self.reward_filter, 'read_only') and value:
-                print('Warning: requested to set reward_filter.read_only=True but the underlying ZFilter does not support it.')
-            elif hasattr(self.reward_filter, 'read_only'):
-                self.reward_filter.read_only = self._read_only
-    
+        if hasattr(self.state_filter, 'read_only'):
+            self.state_filter.read_only = value
+        if hasattr(self.reward_filter, 'read_only'):
+            self.reward_filter.read_only = value
 
-    def reset(self):
-        # Set a deterministic random seed for reproduicability
-        self.env.seed(random.getrandbits(31))
-        # Reset the state, and the running total reward
-        start_state = self.env.reset()
-        self.total_true_reward = 0.0
-        self.counter = 0.0
-        self.episode_counter += 1
-        if self.save_frames:
-            os.makedirs(os.path.join(self.save_frames_path, f"{self.episode_counter:03d}"), exist_ok=True)
-            self.frame_counter = 0
-        self.state_filter.reset()
-        self.reward_filter.reset()
-        return self.state_filter(start_state, reset=True)
-
-    def step(self, action):
-        state, reward, is_done, info = self.env.step(action)
-        if self.show_env:
-            self.env.render()
-        # Frameskip (every 6 frames, will be rendered at 25 fps)
-        if self.save_frames and int(self.counter) % 6 == 0:
-            image = self.env.render(mode='rgb_array')
-            path = os.path.join(self.save_frames_path, f"{self.episode_counter:03d}", f"{self.frame_counter+1:04d}.bmp")
-            image = Image.fromarray(image)
-            image.save(path)
-            self.frame_counter += 1
-        state = self.state_filter(state)
-        self.total_true_reward += reward
-        self.counter += 1
-        _reward = self.reward_filter(reward)
-        if is_done:
-            info['done'] = (self.counter, self.total_true_reward)
-        return state, _reward, is_done, info
-
-    
+    def __getattr__(self, name):
+        # Fallback to the original env's attributes/methods
+        return getattr(self.env, name)

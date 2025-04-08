@@ -21,8 +21,8 @@ from .steps import value_step, step_with_mode, pack_history
 from .logging import *
 
 from multiprocessing import Process, Queue
-'''from .custom_env import Env'''
-from sumo_rl.environment.env import SumoEnvironment as Env
+from sumo_rl import SumoEnvironment
+from .custom_env import SUMOEnvWrapper as Env
 from .convex_relaxation import get_kl_bound as get_state_kl_bound
 
 class Trainer():
@@ -62,17 +62,29 @@ class Trainer():
         def env_constructor():
             # Whether or not we should add the time to the state
             horizon_to_feed = self.T if time_in_state else None
-            # based on num of CPUs in the machine running the code
             num_cpu = 1
-            return Env(net_file='2way-single-intersection/single-intersection.net.xml',
-                    route_file='2way-single-intersection/single-intersection-vhvh.rou.xml',
-                    out_csv_name='output/waiting_times{}'.format(num_cpu),
-                    single_agent=True,
-                    # set gui=True if you want to see the actual simulation
-                    use_gui=True,
-                    # if single episode taking long to train,num_seconds = a lower value
-                    num_seconds=1000,
-                    max_depart_delay=0)
+
+            # First, create the base SUMO environment
+            base_env = SumoEnvironment(
+                net_file='2way-single-intersection/single-intersection.net.xml',
+                route_file='2way-single-intersection/single-intersection-vhvh.rou.xml',
+                out_csv_name='output/waiting_times{}'.format(num_cpu),
+                single_agent=True,
+                use_gui=True,
+                num_seconds=1000,
+                max_depart_delay=0
+            )
+
+            # Then wrap it with your custom wrapper
+            return Env(
+                env=base_env,
+                norm_states=True,               # or False depending on your config
+                # If "rewards", applies ZFilter to normalize rewards; if "returns", applies RewardFilter.
+                norm_rewards="returns",
+                add_t_with_horizon=horizon_to_feed,
+                gamma=0.99
+            )
+
 
         # initializes many environments, based off the number of actors
         self.envs = [env_constructor() for _ in range(self.NUM_ACTORS)]
