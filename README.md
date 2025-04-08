@@ -41,7 +41,7 @@ This project comes with an `environment.yml` file that contains all the dependen
   Once the environment has been created, activate it by running:
 
   ```bash
-  conda activate atla-rl-env
+  conda create --name your-env-name-of-choice --file environment.yml
   ```
 
   Now, the environment is set up and ready to use! You can start running the project and training the agent.
