@@ -76,6 +76,10 @@ In the `agent.py` file, you can configure various training parameters, including
 - `clip_rew`: The clipping value for rewards.
 - `single_agent`: Whether to train in a single-agent setup or multi-agent setup.
 
+## Project Advisor
+
+This project is conducted under the guidance of [Dr. Mohamadhossein Noruzoliaee](https://www.utrgv.edu/cive/faculty/mohamadhossein-noruzoliaee/index.htm), a faculty member in the Department of Civil Engineering at The University of Texas Rio Grande Valley.
+
 ### 5. Credits
 
 This project builds upon the original ATLA framework developed by [Huan Zhang](https://github.com/huanzhang12/ATLA_robust_RL). We would like to thank him for his contributions.
