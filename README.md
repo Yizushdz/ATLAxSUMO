@@ -31,7 +31,7 @@ This project comes with an `environment.yml` file that contains all the dependen
   If you have Conda installed, you can create a new environment with all the required dependencies by running the following command:
 
   ```bash
-  conda create --name name-of-your-choice --file environment.yml
+  conda env create -f environment.yml
   ```
 
   This command will automatically create a new Conda environment with all the necessary dependencies, such as `gym`, `numpy`, `torch`, and others.
@@ -41,7 +41,7 @@ This project comes with an `environment.yml` file that contains all the dependen
   Once the environment has been created, activate it by running:
 
   ```bash
-  conda activate name-of-your-env
+  conda activate sumoEnv
   ```
 
   Now, the environment is set up and ready to use! You can start running the project and training the agent.
@@ -57,7 +57,7 @@ Now your environment is ready to go! Continue with the next steps to run or trai
 Once the environment is set up, you can run the project by executing the following command:
 
 ```bash
-python main.py
+python src/run.py --config-path src/config_sumo_atla_lstm_sappo.json
 ```
 
 This will start the RL training process using the ATLA approach. Make sure you have the necessary data files for the simulation.
